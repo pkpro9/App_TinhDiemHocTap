@@ -1,9 +1,5 @@
-streamlit
+streamlit==1.41.0
 gspread
 pandas
-oauth2client
 google-auth
 google-auth-oauthlib
-show
-json
-os
