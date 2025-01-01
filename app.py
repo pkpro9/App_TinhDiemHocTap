@@ -1,22 +1,28 @@
 import streamlit as st
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2.service_account import Credentials
 import pandas as pd
+import json
+import os
 
-# Kết nối Google Sheet
+# Kết nối Google Sheet bằng GitHub Secret
 GSPREAD_URL = "https://docs.google.com/spreadsheets/d/1Vj1xMKS521etE3eL-rexbBXPucKGAiYpsQnpSIJPJeA/edit?usp=sharing"
 
 def connect_to_google_sheet():
-    scope = [
-        "https://spreadsheets.google.com/feeds",
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive.file",
-        "https://www.googleapis.com/auth/drive",
-    ]
-    creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
-    client = gspread.authorize(creds)
-    sheet = client.open_by_url(GSPREAD_URL)
-    return sheet
+    try:
+        # Tải thông tin từ biến môi trường (GitHub Secret)
+        credentials_info = json.loads(os.getenv("GOOGLE_CREDENTIALS"))
+        scopes = [
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive",
+        ]
+        credentials = Credentials.from_service_account_info(credentials_info, scopes=scopes)
+        client = gspread.authorize(credentials)
+        sheet = client.open_by_url(GSPREAD_URL)
+        return sheet
+    except Exception as e:
+        st.error(f"Lỗi khi kết nối Google Sheet: {e}")
+        return None
 
 # Tính điểm trung bình
 def calculate_average(data):
@@ -36,6 +42,8 @@ st.title("App tính điểm học tập")
 
 # Kết nối Google Sheet
 sheet = connect_to_google_sheet()
+if sheet is None:
+    st.stop()  # Dừng nếu không kết nối được Google Sheet
 
 # Lấy dữ liệu danh sách môn học từ sheet1
 def get_subjects_from_sheet(sheet):
