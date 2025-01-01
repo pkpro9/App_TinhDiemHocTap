@@ -5,13 +5,18 @@ import pandas as pd
 import json
 import os
 
-# Kết nối Google Sheet bằng GitHub Secret
+# URL của Google Sheet
 GSPREAD_URL = "https://docs.google.com/spreadsheets/d/1Vj1xMKS521etE3eL-rexbBXPucKGAiYpsQnpSIJPJeA/edit?usp=sharing"
 
+# Hàm kết nối với Google Sheet
 def connect_to_google_sheet():
     try:
-        # Tải thông tin từ biến môi trường (GitHub Secret)
-        credentials_info = json.loads(os.getenv("GOOGLE_CREDENTIALS"))
+        # Tải thông tin từ biến môi trường GOOGLE_CREDENTIALS
+        credentials_json = os.getenv("GOOGLE_CREDENTIALS")
+        if not credentials_json:
+            raise ValueError("Biến môi trường GOOGLE_CREDENTIALS không được thiết lập hoặc rỗng.")
+        
+        credentials_info = json.loads(credentials_json)
         scopes = [
             "https://www.googleapis.com/auth/spreadsheets",
             "https://www.googleapis.com/auth/drive",
@@ -24,7 +29,7 @@ def connect_to_google_sheet():
         st.error(f"Lỗi khi kết nối Google Sheet: {e}")
         return None
 
-# Tính điểm trung bình
+# Hàm tính điểm trung bình
 def calculate_average(data):
     result = []
     for semester in data["semester"].unique():
@@ -45,12 +50,16 @@ sheet = connect_to_google_sheet()
 if sheet is None:
     st.stop()  # Dừng nếu không kết nối được Google Sheet
 
-# Lấy dữ liệu danh sách môn học từ sheet1
+# Lấy danh sách môn học từ sheet1
 def get_subjects_from_sheet(sheet):
-    sheet1 = sheet.get_worksheet(0)  # Lấy sheet1
-    subjects = sheet1.col_values(1)  # Lấy dữ liệu cột "subject"
-    subjects = [sub.strip() for sub in subjects if sub.strip()]  # Loại bỏ giá trị trống và khoảng trắng
-    return subjects
+    try:
+        sheet1 = sheet.get_worksheet(0)  # Lấy sheet1
+        subjects = sheet1.col_values(1)  # Lấy dữ liệu cột "subject"
+        subjects = [sub.strip() for sub in subjects if sub.strip()]  # Loại bỏ giá trị trống và khoảng trắng
+        return subjects
+    except Exception as e:
+        st.error(f"Lỗi khi tải danh sách môn học: {e}")
+        return []
 
 subjects = get_subjects_from_sheet(sheet)
 test_types = ["Kiểm tra thường xuyên", "Giữa kỳ", "Cuối Kỳ", "Thi học kỳ"]
@@ -72,7 +81,7 @@ test_type = st.selectbox("Chọn loại kiểm tra", options=test_types, key="te
 semester = st.selectbox("Học kỳ", options=semesters, key="semester")
 score = st.number_input("Nhập số điểm", min_value=0.0, max_value=10.0, step=0.1, key="score")
 
-# Hệ số dựa trên loại kiểm tra
+# Hệ số loại kiểm tra
 weights = {
     "Kiểm tra thường xuyên": 1,
     "Giữa kỳ": 1,
@@ -86,7 +95,7 @@ if st.button("Ghi nhận"):
     try:
         # Ghi dữ liệu vào sheet2
         sheet2 = sheet.get_worksheet(1)  # Lấy sheet2
-        sheet2.append_row([semester, subject, test_type, st.session_state["score"], weight])
+        sheet2.append_row([semester, subject, test_type, score, weight])
         st.success(f"Đã ghi nhận thông tin vào Google Sheet!")
     except Exception as e:
         st.error(f"Lỗi khi ghi nhận thông tin: {e}")
@@ -94,7 +103,7 @@ if st.button("Ghi nhận"):
 # Nút "Tính điểm trung bình"
 if st.button("Tính điểm trung bình"):
     try:
-        # Lấy tất cả dữ liệu từ sheet2
+        # Lấy dữ liệu từ sheet2
         sheet2 = sheet.get_worksheet(1)
         records = sheet2.get_all_records()
         if records:
