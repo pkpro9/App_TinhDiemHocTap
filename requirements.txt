@@ -1,5 +1,3 @@
-gspread
-ServiceAccountCredentials
 streamlit
-oauth2client
+gspread
 pandas
